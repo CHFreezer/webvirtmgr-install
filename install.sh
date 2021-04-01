@@ -9,29 +9,29 @@ echo -e "\033[36m 更新apt仓 \033[0m"
 add-apt-repository universe
 apt update
 
-echo "\033[36m 设置用户/组 \033[0m"
+echo -e "\033[36m 设置用户/组 \033[0m"
 read -p "webvirtmgr用户（默认www）：" webvirtmgr_user
 webvirtmgr_user=${webvirtmgr_user:-www}
 read -p "webvirtmgr组（默认www）：" webvirtmgr_group
 webvirtmgr_group=${webvirtmgr_group:-www}
 
-echo "\033[36m 安装KVM \033[0m"
-apt install qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils -y
+echo -e "\033[36m 安装KVM \033[0m"
+apt install qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils sasl2-bin -y
 adduser ${webvirtmgr_user} libvirt
 adduser ${webvirtmgr_user} kvm
 
-echo "\033[36m 安装依赖 \033[0m"
+echo -e "\033[36m 安装依赖 \033[0m"
 apt install wget git python python-libxml2 novnc supervisor -y
 wget http://archive.ubuntu.com/ubuntu/pool/main/libv/libvirt-python/python-libvirt_4.0.0-1_amd64.deb -O python-libvirt_4.0.0-1_amd64.deb
 dpkg -i python-libvirt_4.0.0-1_amd64.deb
 rm -f python-libvirt_4.0.0-1_amd64.deb
 
-echo "\033[36m 安装pip \033[0m"
+echo -e "\033[36m 安装pip \033[0m"
 wget https://bootstrap.pypa.io/pip/2.7/get-pip.py -O get-pip.py
 python get-pip.py
 rm -f get-pip.py
 
-echo "\033[36m 安装webvirtmgr \033[0m"
+echo -e "\033[36m 安装webvirtmgr \033[0m"
 git clone git://github.com/retspen/webvirtmgr.git
 cd webvirtmgr
 pip install -r requirements.txt
@@ -40,7 +40,8 @@ pip install websockify
 ./manage.py collectstatic
 cd ..
 
-echo "\033[36m 设置webvirtmgr \033[0m"
+echo -e "\033[36m 设置webvirtmgr \033[0m"
+mkdir -p /var/www
 sudo mv webvirtmgr /var/www/
 chown -R ${webvirtmgr_user}:${webvirtmgr_group} /var/www/webvirtmgr
 
@@ -64,10 +65,15 @@ redirect_stderr=true
 user=${webvirtmgr_user}
 EOF
 mv webvirtmgr.conf /etc/supervisor/conf.d/
+sed -i 's/libvirtd_opts="-d"/libvirtd_opts="-d -l"/g' /etc/default/libvirtd
+sed -i 's/#listen_tls/listen_tls/g' /etc/libvirt/libvirtd.conf
+sed -i 's/#listen_tcp/listen_tcp/g' /etc/libvirt/libvirtd.conf
+sed -i 's/#auth_tcp/auth_tcp/g' /etc/libvirt/libvirtd.conf
+sed -i 's/#[ ]*vnc_listen.*/vnc_listen = "0.0.0.0"/g' /etc/libvirt/qemu.conf
+sed -i 's/#[ ]*spice_listen.*/spice_listen = "0.0.0.0"/g' /etc/libvirt/qemu.conf
 systemctl stop supervisor
 systemctl start supervisor
-systemctl enable supervisor
 
 echo ""
-echo "\033[32m 最后，请在nginx中手动添加proxy_pass http://127.0.0.1:8000; 以完成安装。 \033[0m"
-echo "\033[32m 如你需要使用本地libvirt-sock，请重启系统，以便使webvirtmgr用户加入libvirt/kvm用户组 \033[0m"
+echo -e "\033[32m 最后，请根据https://github.com/CHFreezer/webvirtmgr-install#nginx%E5%BB%BA%E8%AE%AE%E9%85%8D%E7%BD%AE配置nginx, 以完成安装。 \033[0m"
+echo -e "\033[32m 如你需要使用本地libvirt-sock，请重启系统，以便使webvirtmgr用户加入libvirt/kvm用户组 \033[0m"
